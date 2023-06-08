@@ -160,6 +160,7 @@ card_fraud %>%
 
 ```
 
+#We have 14 categories. We belive that agregating some of them (e.g. grocery_pos and grocery_net into grocery, shopping_pos and shopping_net into shopping) would min number of categories and increase the chance of category being a predictor of new data, as each category would contain more records to train from.
 
 The predictors `category` and `job` are transformed into factors.
 
