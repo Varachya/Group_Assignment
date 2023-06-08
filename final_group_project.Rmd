@@ -120,7 +120,112 @@ card_fraud <- card_fraud %>%
 ## Exploratory Data Analysis (EDA) 
 
 You have done some EDA and you can pool together your group's expertise in which variables to use as features.
-You can reuse your EDA from earlier, but we expect at least a few visualisations and/or tables to explore teh dataset and identify any useful features.
+You can reuse your EDA from earlier, but we expect at least a few visualisations and/or tables to explore the dataset and identify any useful features.
+
+```{r}
+#EDA
+```
+
+```{r}
+Distribution of amounts charged to credit card, both for legitimate and fraudulent accounts.
+
+```{r}
+
+summary_table <- card_fraud %>%
+
+  group_by(trans_year, is_fraud) %>%
+
+  summarize(total_amt = sum(amt))
+
+ 
+
+# total fraud
+
+fraud_sum <- summary_table %>%
+
+  filter(is_fraud == 1) %>%
+
+  mutate(fraud_amt = total_amt) %>%
+
+  select(trans_year, fraud_amt)
+
+ 
+
+# total legit
+
+legitimate_sum <- summary_table %>%
+
+  filter(is_fraud == 0) %>%
+
+  mutate(legitimate_amt = total_amt) %>%
+
+  select(trans_year, legitimate_amt)
+
+ 
+
+fraud_percentage <- fraud_sum %>%
+
+  left_join(legitimate_sum, by = "trans_year") %>%
+
+  mutate(percentage_fraud = (fraud_amt / (fraud_amt + legitimate_amt)) * 100, percentage_legitimate = (legitimate_amt / (fraud_amt + legitimate_amt)) * 100) %>%
+
+  select(trans_year, fraud_amt, legitimate_amt, percentage_fraud, percentage_legitimate) %>%
+
+  
+
+ggplot(aes(x = factor(trans_year), y = fraud_amt + legitimate_amt)) +
+
+  geom_col(aes(fill = paste0(sprintf("%.1f", round(percentage_fraud, 1)), "% Fraud\n", sprintf("%.1f", round(percentage_legitimate, 1)), "% Legitimate")), width = 0.8) +
+
+  labs(title = "Total Amount per Year", x = "Year", y = "Total Amount") +
+
+  scale_fill_manual(values = c("grey", "black"), name = "Transaction Type") +
+
+  scale_x_discrete(labels = c("2019", "2020")) +
+
+  scale_y_continuous(labels = scales::comma) +
+
+  theme(axis.text.x = element_text(size = 10, vjust = 0.5))
+
+print(fraud_percentage)
+```
+
+```{r}
+
+Types of purchases that are most likely to be instances of fraud.
+
+```{r}
+
+# Per merchant category
+
+fraud_by_category <- card_fraud %>%
+
+  filter(is_fraud == 1) %>%
+
+  count(category, wt = amt) %>%
+
+  mutate(percentage = (n / sum(n)) * 100) %>%
+
+  arrange(desc(percentage))
+
+ 
+# Create a bar chart
+
+bar_chart <- ggplot(fraud_by_category, aes(x = reorder(category, percentage), y = percentage)) +
+
+  geom_bar(stat = "identity") +
+
+  labs(title = "Percentage of Fraudulent Transactions by Merchant Category",
+
+       x = "Merchant Category", y = "Percentage of Fraudulent Transactions") +
+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Print the bar chart
+
+bar_chart
+```
 
 Group all variables by type and examine each variable class by class. The dataset has the following types of variables:
 
