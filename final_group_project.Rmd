@@ -55,8 +55,8 @@ As we will be building a classifier model using tidymodels, there's two things w
 #| message: false
 #| warning: false
 
-#card_fraud <- read_csv(here::here("data", "card_fraud.csv")) %>% 
-card_fraud <- read.csv('C:/Users/szkol/dsb2023-main/data/card_fraud.csv') %>%
+card_fraud <- read_csv(here::here("data", "card_fraud.csv")) %>% 
+#card_fraud <- read.csv('C:/Users/szkol/dsb2023-main/data/card_fraud.csv') %>%
 
   mutate(
     # in tidymodels, outcome should be a factor  
@@ -225,6 +225,39 @@ bar_chart <- ggplot(fraud_by_category, aes(x = reorder(category, percentage), y 
 # Print the bar chart
 
 bar_chart
+```
+
+```{r}
+# distance between card holder's home and transaction
+# code adapted from https://www.geeksforgeeks.org/program-distance-two-points-earth/amp/
+
+library(tidyverse)
+library(skimr)
+library(here)
+library(lubridate)
+
+fraud <- card_fraud %>%
+  mutate(
+    
+    # convert latitude/longitude to radians
+    lat1_radians = lat / 57.29577951,
+    lat2_radians = merch_lat / 57.29577951,
+    long1_radians = long / 57.29577951,
+    long2_radians = merch_long / 57.29577951,
+    
+    # calculate distance in miles
+    distance_miles = 3963.0 * acos((sin(lat1_radians) * sin(lat2_radians)) + cos(lat1_radians) * cos(lat2_radians) * cos(long2_radians - long1_radians)),
+
+    # calculate distance in km
+    distance_km = 6377.830272 * acos((sin(lat1_radians) * sin(lat2_radians)) + cos(lat1_radians) * cos(lat2_radians) * cos(long2_radians - long1_radians))
+
+  )
+
+fraud %>% 
+  ggplot(aes(x = distance_km, y = is_fraud)) +
+  geom_boxplot()
+
+
 ```
 
 Group all variables by type and examine each variable class by class. The dataset has the following types of variables:
