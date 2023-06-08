@@ -55,7 +55,8 @@ As we will be building a classifier model using tidymodels, there's two things w
 #| message: false
 #| warning: false
 
-card_fraud <- read_csv(here::here("data", "card_fraud.csv")) %>% 
+#card_fraud <- read_csv(here::here("data", "card_fraud.csv")) %>% 
+card_fraud <- read.csv('C:/Users/szkol/dsb2023-main/data/card_fraud.csv') %>%
 
   mutate(
     # in tidymodels, outcome should be a factor  
