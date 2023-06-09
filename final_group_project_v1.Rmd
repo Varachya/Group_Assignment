@@ -554,7 +554,7 @@ Time elapsed (recorded with 3 folds):
 
 -   KNN: 221.735 sec
 
-As we can see, most quick models are gradient boosting and logistic (less than 4 seconds). With this number of dummy variables, other models take longer. KNN-model took nearly 4 minutes to complete. (note that this records is run by another team member who got better machine than the one who did the final knitting, and also with only 3 folds, the final results when knitted were different in numbers but similar in the message)
+As we can see, most quick models are gradient boosting and logistic (less than 4 seconds). With this number of dummy variables, other models take longer. KNN-model took nearly 4 minutes to complete. (note that this records is run by another team member who got better machine than the one who did the final knitting, and also with only 3 folds, the final results when knitted were different in numbers but similar in the message) -> we remove Knn from further assessment due to its inefficiency
 
 ## Compare models
 
@@ -806,7 +806,7 @@ cost <- cost %>%
   mutate(
 
   # naive false-- we think every single transaction is ok and not fraud
-    false_naives=amt,
+    false_naives=ifelse(is_fraud==1,amt,0),
 
   # false negatives-- we thought they were not fraud, but they were
     false_negatives=ifelse((is_fraud==1)&(pred==0),amt,0),
