@@ -120,10 +120,6 @@ card_fraud <- card_fraud %>%
 
 You have done some EDA and you can pool together your group's expertise in which variables to use as features. You can reuse your EDA from earlier, but we expect at least a few visualisations and/or tables to explore the dataset and identify any useful features.
 
-```{r}
-#EDA
-```
-
 Distribution of amounts charged to credit card, both for legitimate and fraudulent accounts.
 
 ```{r}
@@ -374,22 +370,46 @@ cv_folds
 
 What steps are you going to add to your recipe? Do you need to do any log transformations?
 
+We are doing the following steps:
+
+1.  step_rm(): excludes {job, city, state} variables because they have \>50 different values with no dominating ones. It is impractical to convert this variable to a large number of dummies\
+    We also excluded "trans_date_trans_time" and "dob", as R had problems with treating them as numerical variables in the model. Moreover, the date-time was already split into several distinct variables, and age is a new variable that stems from dob.
+
+2.  step_other(): groups infrequent categories (bottom 3) into the "other" value. The others would be split into regular dummy variables
+
+3.  step_novel(): adds a catch-all level to a factor for any new values not encountered in model training. This is especially important because we are only using 10% of data as a sample
+
+4.  step_dummy(): converts nominal disperse data into dummy separate variables
+
+5.  step_zv(): omits zero variance variables (if any)
+
+6.  step_normalize(): standardizes and normalizes the numerical variables to fit (mean = 0, sd = 1). Note - the underlying distribution is not necessarily normal. We believe that transformation just shifts the mean and changes the scale, but does not change the nature of distribution (as would other methods, such as Gaussian copulas)
+
+We did not include step_corr() to remove highly correlated data for the following reasons:
+
+-   There is not many numerical variables across which it is possible to measure correlation
+
+-   We don't expect any correlation among these numerical variables. Possible, a positive correlation exists between amount and age of cardholder (as more mature cardholders are likely to have more money in their account or higher credit card limits).
+
 ```{r, define_recipe}
 
-fraud_rec <- recipe(is_fraud ~ ., data = card_fraud_train) %>%
-
-# From HW 4
- #  movie_rec <- recipe(test ~ ., data = bechdel) %>%
- #  step_other(genre, threshold = .03) %>% 
- #  step_novel(all_nominal(), -all_outcomes()) %>% # Use *before* `step_dummy()` so new level is dummified
- #  step_dummy(all_nominal(), -all_outcomes()) %>% 
- #  step_zv(all_numeric(), -all_outcomes())  %>% 
- #  step_normalize(all_numeric()) #   Remove the last line to save processing time %>% 
- # # step_corr(all_predictors(), threshold = 0.75, method = "spearman") 
+fraud_rec <- recipe(is_fraud ~ ., data = card_fraud_train) %>% 
+  
+  step_rm(job, state, city, trans_date_trans_time, dob) %>%  # Excludes the variables with large number of values and no dominant ones.
 
 
+ step_other(category, threshold = .05) %>% # Groups infrequent categories into the "other" value. 
+  
+ step_novel(all_nominal(), -all_outcomes()) %>% # Adds a catch-all level to a factor for any new values not encountered in model training.
+  
 
+ step_dummy(all_nominal(), -all_outcomes()) %>% # Converts nominal data into dummy variables
+  
+ step_zv(all_numeric(), -all_outcomes())  %>% # Omits zero variance variables (if any)
+  
+ step_normalize(all_numeric()) # Eugene: standardizes and normalizes the numerical variables to fit (mean = 0, sd = 1). Note - the underlying distribution is not necessarily normal. We believe that transformation just shifts the mean and changes the scale, but does not change the nature of distribution (as would other methods, such as Gaussian copulas)
 
+fraud_rec
 
 ```
 
@@ -422,7 +442,47 @@ You should define the following classification models:
 # 2. set the `engine`
 # 3. Set the `mode`:  classification
 
+# We will use classification mode everywhere, since it is our primary task - to classify (predict) future transactions into Fraudulent/Not Fraudulent buckets
 
+# The engines are used as per instructions above
+
+# Logistic regression
+log_spec <-  logistic_reg() %>%  # model type
+  set_engine(engine = "glm") %>%  # model engine
+  set_mode("classification") # model mode
+
+# Show your model specification
+log_spec
+
+# Decision Tree
+tree_spec <- decision_tree() %>%
+  set_engine(engine = "C5.0") %>%
+  set_mode("classification")
+
+tree_spec
+
+# Random Forest
+library(ranger)
+
+rf_spec <- 
+  rand_forest() %>% 
+  set_engine("ranger", importance = "impurity") %>% 
+  set_mode("classification")
+
+
+# Boosted tree (XGBoost)
+library(xgboost)
+
+xgb_spec <- 
+  boost_tree() %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification") 
+
+# K-nearest neighbour (k-NN)
+knn_spec <- 
+  nearest_neighbor(neighbors = 4) %>% # we can adjust the number of neighbors 
+  set_engine("kknn") %>% 
+  set_mode("classification") 
 ```
 
 ## Bundle recipe and model with `workflows`
@@ -432,11 +492,39 @@ You should define the following classification models:
 
 ## Bundle recipe and model with `workflows`
 
-
+# Workflow for logistic regression
 log_wflow <- # new workflow object
  workflow() %>% # use workflow function
  add_recipe(fraud_rec) %>%   # use the new recipe
  add_model(log_spec)   # add your model spec
+
+# show object
+log_wflow
+
+
+# Workflow for decision tree
+tree_wflow <-
+ workflow() %>%
+ add_recipe(fraud_rec) %>% 
+ add_model(tree_spec) 
+
+# Workflow for random forest
+rf_wflow <-
+ workflow() %>%
+ add_recipe(fraud_rec) %>% 
+ add_model(rf_spec) 
+
+# Workflow for gradient boosting
+xgb_wflow <-
+ workflow() %>%
+ add_recipe(fraud_rec) %>% 
+ add_model(xgb_spec)
+
+# Workflow for K-nearest neighbor algorithm
+knn_wflow <-
+ workflow() %>%
+ add_recipe(fraud_rec) %>% 
+ add_model(knn_spec)
 
 ```
 
@@ -445,8 +533,11 @@ log_wflow <- # new workflow object
 You may want to compare the time it takes to fit each model. `tic()` starts a simple timer and `toc()` stops it
 
 ```{r, fit_models}
+
+# We have amended the code to be reusable in a function form
+time_elapsed <- function(x) {
 tic()
-log_res <- log_wflow %>% 
+log_res <- {{x}} %>% 
   fit_resamples(
     resamples = cv_folds, 
     metrics = metric_set(
@@ -455,9 +546,32 @@ log_res <- log_wflow %>%
     control = control_resamples(save_pred = TRUE)) 
 time <- toc()
 log_time <- time[[4]]
+}
 
+# We can later run the function, changing the argument (workflow name)
+time_elapsed(log_wflow)
+time_elapsed(tree_wflow)
+time_elapsed(rf_wflow)
+time_elapsed(xgb_wflow)
+
+# We have to comment the function call for knn_wflow, as it takes too long (221 sec in our experiments, had to terminate)
+#time_elapsed(knn_wflow)
 
 ```
+
+Time elapsed:
+
+-   Logistic model: 3.88 sec
+
+-   Decision tree: failed, 15.893 sec
+
+-   Random forest: 27.505 sec
+
+-   Gradient boosting: failed, 3.198 sec
+
+-   KNN: 221.735 sec
+
+As we can see, most quick models are gradient boosting and logistic (less than 4 seconds). With this number of dummy variables, other models take longer. KNN-model took nearly 4 minutes to complete.
 
 ## Compare models
 
